@@ -1,0 +1,244 @@
+{
+  "created_utc": "2026-09-23T03:49:11.417564+00:00",
+  "run_id": "6992cdf1",
+  "target": "http://127.0.0.1:50707",
+  "settings": {
+    "url": "http://127.0.0.1:50707",
+    "players": 200,
+    "levels": [
+      200
+    ],
+    "rounds": 5,
+    "question_seconds": 20,
+    "ramp_seconds": 2.0,
+    "join_concurrency": 10,
+    "think_seconds": 1,
+    "answer_spread": 0.0,
+    "cooldown": 65,
+    "timeout": 45,
+    "p95_ms": 1000,
+    "compression": "on",
+    "ca_file": null,
+    "seed": 42,
+    "stop_on_fail": false,
+    "output": "/workspace/scratch/c3fb3bd716da/scale200-source/quizspark-docker/docs/load-results/burst-200.json"
+  },
+  "python": "3.12.14",
+  "aiohttp": "3.13.5",
+  "cases": [
+    {
+      "players_requested": 200,
+      "status": "PASS",
+      "rounds": [
+        {
+          "question": 1,
+          "type": "mcq",
+          "status": "PASS",
+          "answers_accepted_server": 200,
+          "answers_missing_server": 0,
+          "results_received": 200,
+          "ack_ms": {
+            "samples": 200,
+            "p50": 126.38,
+            "p95": 132.12,
+            "p99": 133.44,
+            "max": 133.6
+          },
+          "answer_errors": {},
+          "send_span_ms": 7.57,
+          "question_delivery_span_ms": 28.37,
+          "generator_schedule_lag_ms": {
+            "samples": 200,
+            "p50": 8.21,
+            "p95": 10.66,
+            "p99": 10.81,
+            "max": 10.85
+          },
+          "question_points_min": 971,
+          "question_points_max": 974,
+          "messages_received": 400,
+          "uncompressed_json_MiB": 11.258,
+          "unexpected_disconnects": 0
+        },
+        {
+          "question": 2,
+          "type": "open",
+          "status": "PASS",
+          "answers_accepted_server": 200,
+          "answers_missing_server": 0,
+          "results_received": 200,
+          "ack_ms": {
+            "samples": 200,
+            "p50": 103.22,
+            "p95": 110.57,
+            "p99": 111.36,
+            "max": 111.6
+          },
+          "answer_errors": {},
+          "send_span_ms": 4.33,
+          "question_delivery_span_ms": 19.02,
+          "generator_schedule_lag_ms": {
+            "samples": 200,
+            "p50": 3.0,
+            "p95": 4.86,
+            "p99": 5.08,
+            "max": 5.26
+          },
+          "question_points_min": 970,
+          "question_points_max": 972,
+          "messages_received": 400,
+          "uncompressed_json_MiB": 11.365,
+          "unexpected_disconnects": 0
+        },
+        {
+          "question": 3,
+          "type": "mcq",
+          "status": "PASS",
+          "answers_accepted_server": 200,
+          "answers_missing_server": 0,
+          "results_received": 200,
+          "ack_ms": {
+            "samples": 200,
+            "p50": 103.14,
+            "p95": 109.9,
+            "p99": 110.98,
+            "max": 111.22
+          },
+          "answer_errors": {},
+          "send_span_ms": 4.14,
+          "question_delivery_span_ms": 35.2,
+          "generator_schedule_lag_ms": {
+            "samples": 200,
+            "p50": 3.17,
+            "p95": 5.12,
+            "p99": 5.28,
+            "max": 5.31
+          },
+          "question_points_min": 971,
+          "question_points_max": 973,
+          "messages_received": 400,
+          "uncompressed_json_MiB": 11.411,
+          "unexpected_disconnects": 0
+        },
+        {
+          "question": 4,
+          "type": "open",
+          "status": "PASS",
+          "answers_accepted_server": 200,
+          "answers_missing_server": 0,
+          "results_received": 200,
+          "ack_ms": {
+            "samples": 200,
+            "p50": 103.45,
+            "p95": 111.68,
+            "p99": 114.36,
+            "max": 114.51
+          },
+          "answer_errors": {},
+          "send_span_ms": 3.76,
+          "question_delivery_span_ms": 20.15,
+          "generator_schedule_lag_ms": {
+            "samples": 200,
+            "p50": 3.09,
+            "p95": 4.64,
+            "p99": 4.76,
+            "max": 4.8
+          },
+          "question_points_min": 971,
+          "question_points_max": 973,
+          "messages_received": 400,
+          "uncompressed_json_MiB": 11.404,
+          "unexpected_disconnects": 0
+        },
+        {
+          "question": 5,
+          "type": "mcq",
+          "status": "PASS",
+          "answers_accepted_server": 200,
+          "answers_missing_server": 0,
+          "results_received": 200,
+          "ack_ms": {
+            "samples": 200,
+            "p50": 118.42,
+            "p95": 125.08,
+            "p99": 126.14,
+            "max": 126.99
+          },
+          "answer_errors": {},
+          "send_span_ms": 4.23,
+          "question_delivery_span_ms": 20.23,
+          "generator_schedule_lag_ms": {
+            "samples": 200,
+            "p50": 3.62,
+            "p95": 5.44,
+            "p99": 5.59,
+            "max": 5.62
+          },
+          "question_points_min": 971,
+          "question_points_max": 972,
+          "messages_received": 400,
+          "uncompressed_json_MiB": 11.411,
+          "unexpected_disconnects": 0
+        }
+      ],
+      "join_errors": [],
+      "cleanup_errors": [],
+      "health_errors": [],
+      "temporary_quiz_id": "91cce63d-2442-41dd-aa84-a123591366c0",
+      "pin": "417696",
+      "players_joined": 200,
+      "join_ms": {
+        "samples": 200,
+        "p50": 1.62,
+        "p95": 114.91,
+        "p99": 215.13,
+        "max": 270.24
+      },
+      "join_elapsed_s": 2.002,
+      "health_ms": {
+        "samples": 9,
+        "p50": 0.96,
+        "p95": 36.68,
+        "p99": 36.68,
+        "max": 36.68
+      },
+      "generator_loop_lag_ms": {
+        "samples": 43,
+        "p50": 0.63,
+        "p95": 52.18,
+        "p99": 63.43,
+        "max": 63.43
+      },
+      "generator_cpu_s": 1.935,
+      "elapsed_before_cleanup_s": 8.999,
+      "unexpected_disconnects": 0
+    }
+  ],
+  "notes": [
+    "Acknowledgement latency is send-to-first-state-confirmation, not network RTT.",
+    "Latency quantiles exclude answers with no acknowledgement; inspect lost answers too.",
+    "JSON bytes are uncompressed application payload, not wire bandwidth.",
+    "This is an HTTP/WebSocket protocol test, not a browser, image or Wi-Fi test."
+  ],
+  "server_config": {
+    "maxUploadMB": 10,
+    "maxImportMB": 50,
+    "maxPlayers": 200
+  },
+  "status": "PASS",
+  "verification": {
+    "server": {
+      "status": "ok",
+      "version": "3.1-docker"
+    },
+    "load_exit_code": 0,
+    "server_process_separate": true,
+    "transport": "loopback HTTP/WebSocket",
+    "created_utc": "2026-09-23T03:49:20.539209+00:00",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "logical_cpus_visible": 9,
+    "python": "3.12.14",
+    "cpu_quota": "800000 100000",
+    "memory_limit_bytes": "15032385536"
+  }
+}

@@ -32,6 +32,67 @@ Image.MAX_IMAGE_PIXELS = 25_000_000
 log = logging.getLogger("quizspark")
 
 
+def wire_json(value):
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+class SocketWriter:
+    """One ordered, bounded outbox per connection; never awaited by game logic."""
+    def __init__(self, ws):
+        self.ws = ws
+        self.pending = deque()
+        self.wake = asyncio.Event()
+        self.closing = False
+        self.task = asyncio.create_task(self.run())
+
+    def put(self, payload, key=None):
+        if self.closing or self.ws.closed:
+            return
+        # Replace only consecutive updates to the SAME question/stage. Preserve
+        # question -> results -> leaderboard ordering and all control messages.
+        if key is not None and self.pending and self.pending[-1][0] == key:
+            self.pending[-1] = (key, payload)
+        elif len(self.pending) >= 32:
+            self.pending.clear()
+            self.close(1013, b"Client too slow; reconnect")
+            return
+        else:
+            self.pending.append((key, payload))
+        self.wake.set()
+
+    def close(self, code=1000, message=b""):
+        if not self.closing:
+            self.closing = True
+            self.pending.append((None, (code, message)))
+            self.wake.set()
+
+    async def run(self):
+        try:
+            while True:
+                if not self.pending:
+                    self.wake.clear()
+                    await self.wake.wait()
+                _, payload = self.pending.popleft()
+                async with asyncio.timeout(3):
+                    if isinstance(payload, tuple):
+                        await self.ws.close(code=payload[0], message=payload[1])
+                        return
+                    await self.ws.send_str(payload)
+        except (ConnectionError, RuntimeError, TimeoutError):
+            self.closing = True
+            try:
+                async with asyncio.timeout(3):
+                    await self.ws.close(code=1013, message=b"Client too slow; reconnect")
+            except (ConnectionError, RuntimeError, TimeoutError):
+                pass
+        finally:
+            self.pending.clear()
+
+    async def stop(self):
+        self.task.cancel()
+        await asyncio.gather(self.task, return_exceptions=True)
+
+
 class Invalid(Exception):
     def __init__(self, code="invalid", status=400):
         self.code, self.status = code, status
@@ -194,6 +255,8 @@ class Room:
         self.touched = time.monotonic()
         self.lock = asyncio.Lock()
         self.tasks = set()
+        self.broadcast_handle = None
+        self.broadcast_players = False
 
     def task(self, coroutine):
         task = asyncio.create_task(coroutine)
@@ -211,8 +274,8 @@ class Room:
                  "streak": p["streak"], "rank": i + 1, "online": p["bot"] or (p["ws"] is not None and not p["ws"].closed),
                  "bot": p["bot"]} for i, p in enumerate(ranked)]
 
-    def snapshot(self, player_id=None):
-        ranking = self.ranking()
+    def snapshot(self, player_id=None, ranking=None):
+        ranking = self.ranking() if ranking is None else ranking
         state = {"pin": self.pin, "title": self.quiz["title"], "stage": self.stage, "index": self.index,
                  "total": len(self.quiz["questions"]), "players": ranking, "received": len(self.answers),
                  "deadline": self.deadline, "serverNow": time.time() * 1000,
@@ -228,18 +291,54 @@ class Room:
                 if player_id is None:
                     state["responses"] = [{"id": p, "name": self.players[p]["name"], **a} for p, a in self.answers.items()]
         if player_id is not None:
-            me = next(p for p in ranking if p["id"] == player_id)
-            me["answered"] = player_id in self.answers
-            if self.stage in ("results", "leaderboard", "podium"):
-                me["answer"] = self.answers.get(player_id, {"correct": False, "points": 0, "value": None})
-            state["me"] = me
+            state["me"] = self.player_state(next(p for p in ranking if p["id"] == player_id))
         return {"type": "state", "state": state}
 
-    async def broadcast(self):
-        recipients = [(self.host, None)] + [(p["ws"], p["id"]) for p in self.players.values() if not p["bot"]]
-        sends = [self.service.send(ws, self.snapshot(pid)) for ws, pid in recipients if ws is not None and not ws.closed]
-        if sends:
-            await asyncio.gather(*sends)
+    def player_state(self, ranked):
+        me = dict(ranked)
+        me["answered"] = me["id"] in self.answers
+        if self.stage in ("results", "leaderboard", "podium"):
+            me["answer"] = self.answers.get(me["id"], {"correct": False, "points": 0, "value": None})
+        return me
+
+    def cancel_broadcast(self):
+        if self.broadcast_handle is not None:
+            self.broadcast_handle.cancel()
+            self.broadcast_handle = None
+        self.broadcast_players = False
+
+    def broadcast(self, immediate=False, players=True):
+        """Coalesce lobby/presence/progress, but publish stage transitions now."""
+        if self.service.stopping:
+            return
+        self.broadcast_players |= players
+        if immediate:
+            if self.broadcast_handle is not None:
+                self.broadcast_handle.cancel()
+            self.publish()
+        elif self.broadcast_handle is None:
+            self.broadcast_handle = asyncio.get_running_loop().call_later(.2, self.publish)
+
+    def publish(self):
+        self.broadcast_handle = None
+        players, self.broadcast_players = self.broadcast_players, False
+        ranking = self.ranking()
+        packet = self.snapshot(ranking=ranking)
+        key = (self.pin, self.index, self.stage)
+        self.service.send(self.host, packet, key=key)
+        if not players:
+            return
+        # Common roster/question JSON is encoded once for the entire room.
+        packet["state"].pop("responses", None)
+        prefix = wire_json(packet)[:-2] + ',"me":'
+        for ranked in ranking:
+            p = self.players[ranked["id"]]
+            if not p["bot"] and p["ws"] is not None and not p["ws"].closed:
+                self.service.send_encoded(p["ws"], prefix + wire_json(self.player_state(ranked)) + "}}", key=key)
+
+    def acknowledge(self, player_id):
+        self.service.send(self.players[player_id]["ws"], self.snapshot(player_id),
+                          key=(self.pin, self.index, self.stage))
 
     def add_player(self, name, avatar, bot=False):
         if self.stage != "lobby":
@@ -255,7 +354,7 @@ class Room:
         self.players[player["id"]] = player
         return player
 
-    async def start_question(self):
+    def start_question(self):
         self.cancel_tasks()
         self.index += 1
         self.stage, self.answers = "question", {}
@@ -272,29 +371,32 @@ class Room:
         async with self.lock:
             if self.stage == "question" and self.index == index:
                 self.reveal()
-                await self.broadcast()
+            else:
+                return
+        self.broadcast(immediate=True)
 
     async def bot_answer(self, player_id, index, delay):
         await asyncio.sleep(delay)
+        received_at = time.monotonic()
         async with self.lock:
             if self.stage != "question" or self.index != index:
                 return
             q = self.quiz["questions"][self.index]
             value = (q["correct"] if random.random() < .7 else random.randrange(4)) if q["type"] == "mcq" else (q["openAnswers"][0] if random.random() < .7 else "?")
             try:
-                self.answer(player_id, value, index)
+                self.answer(player_id, value, index, received_at)
             except Invalid:
                 # A busy event loop may resume a bot just after the deadline.
                 return
-            await self.broadcast()
+        self.broadcast(immediate=self.stage == "results", players=self.stage == "results")
 
-    def answer(self, player_id, value, index):
+    def answer(self, player_id, value, index, received_at=None):
         if self.stage != "question" or index != self.index:
             raise Invalid("round_closed")
         if player_id in self.answers:
             raise Invalid("already_answered")
         q = self.quiz["questions"][self.index]
-        elapsed = time.monotonic() - self.started
+        elapsed = max(0, (time.monotonic() if received_at is None else received_at) - self.started)
         if elapsed >= q["time"]:
             raise Invalid("round_closed")
         if q["type"] == "mcq":
@@ -318,11 +420,11 @@ class Room:
             player["score"] += answer.get("points", 0)
             player["streak"] = player["streak"] + 1 if answer.get("correct") else 0
 
-    async def command(self, message):
+    def command(self, message):
         action = message.get("action")
         self.touched = time.monotonic()
         if action == "start" and self.stage == "lobby" and self.players:
-            await self.start_question()
+            self.start_question()
         elif action == "reveal" and self.stage == "question":
             self.reveal()
         elif action == "leaderboard" and self.stage == "results":
@@ -331,14 +433,14 @@ class Room:
             if self.index + 1 == len(self.quiz["questions"]):
                 self.stage = "podium"
             else:
-                await self.start_question()
+                self.start_question()
         elif action == "add_bot" and self.stage == "lobby":
             self.add_player("Bot " + secrets.token_hex(2), random.choice(AVATARS), True)
         elif action == "kick" and self.stage == "lobby":
             player = self.players.pop(message.get("id"), None)
             if player and player["ws"] is not None:
-                await self.service.send(player["ws"], {"type": "kicked"})
-                await player["ws"].close()
+                self.service.send(player["ws"], {"type": "kicked"})
+                self.service.close_socket(player["ws"])
         elif action == "close":
             self.stage = "closed"
             self.cancel_tasks()
@@ -365,6 +467,8 @@ class Service:
         self.sessions, self.rooms = {}, {}
         self.limits = defaultdict(deque)
         self.sockets = set()
+        self.writers = {}
+        self.stopping = False
 
     def rate(self, key, count=30, window=60):
         now = time.monotonic()
@@ -382,16 +486,23 @@ class Service:
     def authorize(self, request):
         self.auth(request.headers.get("Authorization", "").removeprefix("Bearer "))
 
-    async def send(self, ws, value):
-        try:
-            async with asyncio.timeout(3):
-                await ws.send_json(value)
-        except (ConnectionError, RuntimeError, TimeoutError):
-            pass
+    def send(self, ws, value, key=None):
+        if ws is not None and not ws.closed:
+            self.send_encoded(ws, wire_json(value), key)
+
+    def send_encoded(self, ws, payload, key=None):
+        writer = self.writers.get(ws)
+        if writer is not None:
+            writer.put(payload, key)
+
+    def close_socket(self, ws, code=1000, message=b""):
+        writer = self.writers.get(ws)
+        if writer is not None:
+            writer.close(code, message)
 
     async def health(self, request):
         self.storage.db.execute("SELECT 1").fetchone()
-        return web.json_response({"status": "ok", "version": "3.0-docker"})
+        return web.json_response({"status": "ok", "version": "3.1-docker"})
 
     async def login(self, request):
         self.rate(("login", request.remote), 10)
@@ -486,6 +597,7 @@ class Service:
         ws = web.WebSocketResponse(heartbeat=20, max_msg_size=16 * 1024)
         await ws.prepare(request)
         self.sockets.add(ws)
+        writer = self.writers[ws] = SocketWriter(ws)
         room, player_id, role = None, None, None
         message_times = deque()
         try:
@@ -541,29 +653,34 @@ class Service:
                                         old, player_id, role = p["ws"], p["id"], "player"
                                         p["ws"] = ws
                                     if old is not None and old is not ws:
-                                        await old.close(code=4001, message=b"Reconnected elsewhere")
+                                        self.close_socket(old, code=4001, message=b"Reconnected elsewhere")
                                 room = candidate
                         else:
                             raise Invalid("invalid_action")
-                        await self.send(ws, {"type": "connected", "pin": room.pin, "role": role, "token": token})
-                        await room.broadcast()
+                        self.send(ws, {"type": "connected", "pin": room.pin, "role": role, "token": token})
+                        self.send(ws, room.snapshot(player_id), key=(room.pin, room.index, room.stage))
+                        room.broadcast()
                     else:
                         async with room.lock:
+                            previous_stage = room.stage
                             if role == "host":
                                 if room.host is not ws:
                                     raise Invalid("invalid_action")
-                                await room.command(data)
+                                room.command(data)
                             elif data.get("type") == "answer":
                                 if player_id not in room.players or room.players[player_id]["ws"] is not ws:
                                     raise Invalid("room_missing")
-                                room.answer(player_id, data.get("value"), data.get("index"))
+                                room.answer(player_id, data.get("value"), data.get("index"), now)
                             else:
                                 raise Invalid("invalid_action")
-                            await room.broadcast()
+                        changed_stage = previous_stage != room.stage
+                        if role == "player" and not changed_stage:
+                            room.acknowledge(player_id)
+                        room.broadcast(immediate=changed_stage, players=role == "host" or changed_stage)
                 except Invalid as error:
-                    await self.send(ws, {"type": "error", "code": error.code})
+                    self.send(ws, {"type": "error", "code": error.code})
                 except (ValueError, TypeError, KeyError):
-                    await self.send(ws, {"type": "error", "code": "invalid"})
+                    self.send(ws, {"type": "error", "code": "invalid"})
         finally:
             self.sockets.discard(ws)
             if room:
@@ -571,7 +688,9 @@ class Service:
                     room.host = None
                 elif player_id in room.players and room.players[player_id]["ws"] is ws:
                     room.players[player_id]["ws"] = None
-                await room.broadcast()
+                room.broadcast()
+            self.writers.pop(ws, None)
+            await writer.stop()
         return ws
 
     async def lifecycle(self, app):
@@ -585,7 +704,7 @@ class Service:
                         async with room.lock:
                             room.stage = "closed"
                             room.cancel_tasks()
-                            await room.broadcast()
+                        room.broadcast(immediate=True)
                         del self.rooms[pin]
                 for key, queue in list(self.limits.items()):
                     if not queue or queue[-1] < now - 60:
@@ -593,10 +712,12 @@ class Service:
                 self.sessions = {key: expiry for key, expiry in self.sessions.items() if expiry > now}
         task = asyncio.create_task(cleanup())
         yield
+        self.stopping = True
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
         for room in self.rooms.values():
             room.cancel_tasks()
+            room.cancel_broadcast()
         await asyncio.gather(*(ws.close(code=1001, message=b"Server stopping") for ws in tuple(self.sockets)), return_exceptions=True)
         self.storage.db.close()
 

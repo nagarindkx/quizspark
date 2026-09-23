@@ -1,375 +1,213 @@
-# QuizSpark Docker
+# QuizSpark Docker 3.1
 
-เว็บเกมตอบคำถามแบบเรียลไทม์สำหรับห้องเรียนและกิจกรรมกลุ่ม รองรับภาษาไทย/อังกฤษ ผู้จัดเปิดเกมบนจอหลัก ผู้เล่นเข้าร่วมจากโทรศัพท์หรือคอมพิวเตอร์ด้วย PIN 6 หลัก
-
-ระบบใช้ **Python + aiohttp + WebSocket + SQLite** รันด้วย Docker Compose บริการเดียว และเก็บชุดคำถามกับไฟล์อัปโหลดใน Docker volume
+เว็บตอบคำถามภาษาไทย/อังกฤษตามสเปก QuizSpark พร้อม backend สำหรับเล่นหลายเครื่องจริง
+ใช้ Python + aiohttp + SQLite และ HTML/CSS/JavaScript โดยไม่มี frontend build step
 
 ## เริ่มใช้งาน
 
-เครื่องเซิร์ฟเวอร์ต้องมี Docker Engine, Docker Compose v2 และ `unzip` การ build ครั้งแรกต้องเข้าถึง registry ของ Docker image และแพ็กเกจ Python ได้
+ต้องมี Docker Engine และ Docker Compose v2 บนเครื่องเป้าหมาย
 
 ```bash
-unzip quizspark-docker.zip
+unzip quizspark-docker-v3.1.zip
 cd quizspark-docker
 docker compose up -d --build
-```
-
-ดูรหัสผ่านผู้จัดเกมที่ระบบสร้างให้:
-
-```bash
 docker compose exec quizspark cat /app/data/admin-password
 ```
 
-เปิด `http://SERVER_IP:8080` โดยแทน `SERVER_IP` ด้วย IP หรือชื่อเครื่องที่ผู้เล่นเข้าถึงได้ เลือก **จัดเกม** หรือ **จัดการชุดคำถาม** แล้วกรอกรหัสผ่าน
+เปิด `http://SERVER_IP:8080` เลือก **จัดเกม** หรือ **จัดการชุดคำถาม** แล้วใช้รหัสผ่านที่ได้จากคำสั่งสุดท้าย
+ผู้เล่นเปิด URL เดียวกัน กรอก PIN 6 หลักและชื่อเล่น โดยไม่ต้องมีบัญชี
+ใช้ IP หรือชื่อโดเมนที่โทรศัพท์ของผู้เล่นเข้าถึงได้ แทน `localhost` บนหน้าจอผู้จัด
 
-ผู้เล่นเปิด URL เดียวกัน เลือก **เข้าร่วมเกม** และกรอก PIN พร้อมชื่อเล่น โดยไม่ต้องสมัครสมาชิก ใช้ที่อยู่เซิร์ฟเวอร์แทน `localhost` เมื่อเข้าจากเครื่องอื่น
-
-ตรวจสอบสถานะ:
-
-```bash
-docker compose ps
-curl -fsS http://localhost:8080/health
-```
-
-ผลตอบกลับเมื่อแอปพร้อมใช้งาน:
-
-```json
-{"status": "ok", "version": "3.0-docker"}
-```
-
-## ความสามารถ
-
-- จัดเกมหลายอุปกรณ์ผ่าน WebSocket พร้อม lobby รายชื่อผู้เล่น และจำนวนคำตอบแบบสด
-- คำถามแบบเลือกตอบ 4 ตัวเลือก และแบบพิมพ์คำตอบ
-- รูปประกอบคำถาม คำอธิบายเฉลย และรูปประกอบคำอธิบาย
-- จับเวลา ตรวจคำตอบ และคิดคะแนนตามความเร็วที่ฝั่งเซิร์ฟเวอร์
-- แสดงการกระจายคำตอบ คะแนนสะสม การตอบถูกต่อเนื่อง และ podium ผู้ชนะ
-- สร้าง แก้ไข ลบ นำเข้า และส่งออกชุดคำถาม JSON
-- เพิ่มบอตและนำผู้เล่นออกระหว่างรอเริ่มเกม
-- ทดลองหน้าผู้จัดและหน้าผู้เล่นพร้อมกันด้วยโหมดสองหน้าจอ
-- สลับภาษาไทย/อังกฤษ เปิด–ปิดเสียง และกลับเข้าเกมเดิมหลัง refresh หรือเครือข่ายหลุด
-- รวม CSS, JavaScript และฟอนต์ภาษาไทยไว้ในโครงการ ไม่ต้องเรียก CDN ขณะเล่น
-
-รูปที่ผู้จัดใส่เป็น URL ภายนอกยังต้องเข้าถึงต้นทางนั้น หากต้องการให้รูปอยู่บนเซิร์ฟเวอร์นี้ ให้อัปโหลดไฟล์ภาพ
-
-## ตั้งค่าด้วย `.env`
-
-คัดลอกไฟล์ตัวอย่างแล้วแก้ค่าที่ต้องการ:
+หากต้องการกำหนดรหัสผ่าน/พอร์ตเอง ให้คัดลอก `.env.example` เป็น `.env` แล้วแก้ค่า **ก่อนเริ่ม**:
 
 ```bash
 cp .env.example .env
+# แก้ ADMIN_PASSWORD และ HOST_PORT ตามต้องการ
+docker compose up -d --build
 ```
 
-| ตัวแปร | ค่าเริ่มต้น | ความหมาย |
-|---|---|---|
-| `ADMIN_PASSWORD` | ว่าง | รหัสผ่านผู้จัดเกม ถ้าว่างจะใช้รหัสที่สร้างและเก็บใน volume |
-| `HOST_PORT` | `8080` | พอร์ตที่เปิดบนเครื่อง host |
-| `BIND_ADDRESS` | `0.0.0.0` | IP ของ host ที่รับการเชื่อมต่อ |
-| `MAX_UPLOAD_MB` | `10` | ขนาดสูงสุดต่อรูปอัปโหลด |
-| `MAX_IMPORT_MB` | `50` | ขนาดสูงสุดต่อไฟล์ JSON ที่นำเข้า |
-| `MAX_PLAYERS` | `200` | จำนวนผู้เล่นสูงสุดต่อห้อง รวมบอต |
-| `LOG_LEVEL` | `INFO` | ระดับ log ของแอป |
+เมื่อกำหนด `ADMIN_PASSWORD` ระบบจะใช้ค่านั้นแทนรหัสที่สร้างอัตโนมัติ
+ไฟล์ `admin-password` อาจไม่มี หรือเป็นรหัสเดิมที่ไม่ถูกใช้งานเมื่อมีค่า override
+รหัสนี้ใช้สำหรับผู้จัดเกมร่วมกัน ยังไม่มีบัญชีผู้จัดแยกรายบุคคล
 
-ตัวอย่างเปลี่ยนพอร์ตเป็น `8090`:
-
-```dotenv
-ADMIN_PASSWORD=
-HOST_PORT=8090
-BIND_ADDRESS=0.0.0.0
-MAX_UPLOAD_MB=10
-MAX_IMPORT_MB=50
-MAX_PLAYERS=200
-LOG_LEVEL=INFO
-```
-
-หลังแก้ `.env` ให้ใช้คำสั่งนี้เพื่อให้ container รับค่าใหม่:
-
-```bash
-docker compose up -d
-```
-
-จากตัวอย่าง เข้าเว็บที่ `http://SERVER_IP:8090` พอร์ตภายใน container ยังคงเป็น `8080`
-
-เมื่อกำหนด `ADMIN_PASSWORD` ระบบจะใช้ค่านั้นแทนรหัสในไฟล์ `admin-password` ไฟล์ดังกล่าวอาจไม่มี หรือมีรหัสเดิมที่ไม่ได้ใช้งาน จึงไม่ควรใช้คำสั่ง `cat` เพื่อหารหัสเมื่อกำหนดค่า override ไว้แล้ว
-
-ผู้จัดทุกคนใช้รหัสผ่านร่วมกัน รุ่นนี้ยังไม่มีบัญชีผู้จัดแยกรายบุคคล
-
-## การใช้งาน
-
-### ผู้จัดเกม
-
-1. เปิดเว็บ เลือก **จัดเกม** และเข้าสู่ระบบด้วยรหัสผ่านผู้จัด
-2. เลือกชุดคำถาม ระบบจะสร้างห้องและแสดง PIN 6 หลัก
-3. ให้ผู้เล่นเปิด URL ของเซิร์ฟเวอร์และกรอก PIN หรือใช้ปุ่ม **คัดลอกลิงก์เกม**
-4. เมื่อมีผู้เล่นอย่างน้อยหนึ่งคน กด **เริ่มเกม** ใช้ **เพิ่มบอต** เมื่อต้องการทดลอง
-5. หลังเฉลยแต่ละข้อ กด **ดูตารางคะแนน** แล้วไปข้อถัดไป
-6. เมื่อครบทุกข้อ กด **ประกาศผลผู้ชนะ**
-
-### ผู้เล่น
-
-กรอก PIN ชื่อเล่น และเลือกอีโมจิ จากนั้นรอผู้จัดเริ่มเกม แต่ละข้อส่งคำตอบได้ครั้งเดียว ระบบแสดงคะแนนและคำอธิบายหลังจบรอบ
-
-การกลับเข้าเกมเดิมอาศัยข้อมูล session ในแท็บเบราว์เซอร์นั้น การ refresh รองรับ แต่การเปิดแท็บใหม่ไม่ได้รับประกันว่าจะกลับเป็นผู้เล่นคนเดิม
-
-### สร้างชุดคำถาม
-
-เลือก **จัดการชุดคำถาม → สร้างชุดคำถาม** กำหนดชื่อ หมวดหมู่ และรายละเอียดแต่ละข้อ แล้วกด **บันทึกชุดคำถาม**
-
-| รายการ | เงื่อนไข |
-|---|---|
-| จำนวนคำถาม | 1–100 ข้อต่อชุด |
-| แบบเลือกตอบ | มีตัวเลือกไม่ว่าง 4 ตัว และคำตอบถูก 1 ตัว |
-| แบบพิมพ์คำตอบ | มีคำตอบที่ยอมรับ 1–50 ค่า คั่นด้วยจุลภาคในหน้าจอแก้ไข |
-| เวลาตอบ | จำนวนเต็ม 5–300 วินาทีต่อข้อ |
-| รูปภาพ | PNG, JPEG, WebP หรือ GIF ไม่เกินขนาดที่ตั้งไว้ |
-| คำอธิบายและภาพเฉลย | ไม่บังคับ |
-
-คำตอบแบบพิมพ์จะปรับ Unicode ด้วย NFKC ตัดช่องว่างหัวท้าย และเปรียบเทียบโดยไม่แยกตัวพิมพ์ใหญ่–เล็ก เช่น `Au`, `au` และ ` AU ` ถือว่าตรงกันเมื่อกำหนดคำตอบเป็น `Au`
-
-## ไฟล์และข้อมูลถาวร
+## ไฟล์อัปโหลดอยู่ที่ไหน
 
 | ข้อมูล | ตำแหน่งภายใน container |
 |---|---|
-| ชุดคำถามและการตั้งค่าฐานข้อมูล | `/app/data/quizspark.sqlite3` |
 | รูปคำถามและรูปคำอธิบาย | `/app/data/uploads/` |
-| ต้นฉบับ JSON ที่นำเข้าสำเร็จ | `/app/data/imports/` |
-| รหัสผ่านที่ระบบสร้างอัตโนมัติ | `/app/data/admin-password` |
+| ต้นฉบับ JSON ที่นำเข้า | `/app/data/imports/` |
+| ชุดคำถามและการตั้งค่า | `/app/data/quizspark.sqlite3` |
+| รหัสผ่านที่สร้างอัตโนมัติ | `/app/data/admin-password` |
 
-ใน `compose.yaml` มี named volume ชื่อ **`quizspark_data`** ผูกกับ `/app/data` แอปจึงอ่านและเขียนไฟล์ภายใน container โดยมี volume เก็บข้อมูลไว้ข้ามการ restart, rebuild หรือ recreate
+Compose ผูก named volume **`quizspark_data`** เข้ากับ `/app/data`:
 
 ```yaml
-services:
-  quizspark:
-    volumes:
-      - quizspark_data:/app/data
-
 volumes:
-  quizspark_data:
-    name: quizspark_data
+  - quizspark_data:/app/data
 ```
 
-ตัวอย่างด้านบนเป็นเฉพาะส่วนตั้งค่า volume ให้ใช้ไฟล์ `compose.yaml` เต็มที่มากับโครงการในการรัน
+แอปอ่านและเขียนไฟล์ที่ path ภายใน container ขณะที่ Docker volume เก็บข้อมูลไว้ข้ามการ restart, rebuild และ recreate container
+`docker compose down` เก็บ volume ไว้; **อย่าใช้ `docker compose down -v` หากต้องการเก็บข้อมูล**
+ไฟล์ runtime ไม่ได้ฝังใน Docker image และการย้าย image เพียงอย่างเดียวไม่ย้ายข้อมูลอัปโหลด ต้องสำรอง/ย้าย volume ด้วย
 
-รูปอัปโหลดถูกตรวจสอบว่าเป็นภาพจริง และตั้งชื่อด้วย SHA-256 ของเนื้อหา รูปซ้ำจึงใช้ไฟล์เดียวกัน ส่วน JSON ที่นำเข้าจะเก็บต้นฉบับด้วยชื่อ UUID
+รูปอัปโหลดรองรับ PNG/JPEG/WebP/GIF สูงสุด 10 MB ต่อไฟล์ ตรวจสอบว่าเป็นภาพจริงก่อนบันทึก
+ใช้ชื่อไฟล์จาก SHA-256 เพื่อตัดปัญหาชื่อซ้ำและ path traversal โดยเก็บ bytes ภาพต้นฉบับ
+ไฟล์นำเข้า JSON รองรับสูงสุด 50 MB และเก็บต้นฉบับไว้ใน `imports/` หลังผ่านการตรวจสอบ
+รูปที่กรอกเป็น URL จะถูกโหลดจาก URL นั้นโดยเบราว์เซอร์ หากต้องการเก็บรูปบนเซิร์ฟเวอร์ด้วย ให้อัปโหลดไฟล์ภาพ
+ภาพใน JSON แบบ Base64 จะถูกแปลงเป็นไฟล์จริงใน `uploads/`
 
-การลบชุดคำถาม **ไม่ลบรูปภาพอัตโนมัติ** เพราะชุดคำถามอื่นอาจใช้ภาพเดียวกัน ไฟล์เหล่านี้ไม่ได้ฝังใน Docker image การย้าย image อย่างเดียวจึงไม่ย้ายข้อมูลอัปโหลดตามไปด้วย
+การลบ quiz ไม่ลบรูปภาพอัตโนมัติ เพื่อรักษารูปที่อาจถูกอ้างอิงจาก quiz อื่น
 
-`docker compose down` เก็บ volume ไว้ แต่ **`docker compose down -v` จะลบ volume ที่ Compose จัดการ รวมถึงข้อมูลในนั้น**
+## ฟังก์ชันที่มี
 
-## นำเข้าและส่งออก JSON
+- ภาษาไทย/อังกฤษ, เปิด–ปิดเสียงสังเคราะห์, หน้าผู้จัดและหน้าผู้เล่นที่รองรับมือถือ
+- เกม PIN 6 หลัก, คัดลอกลิงก์เข้าร่วม, lobby แบบสด, เพิ่มบอตและนำผู้เล่นออก
+- คำถาม 4 ตัวเลือกและพิมพ์คำตอบ พร้อมรูปคำถามและรูปคำอธิบาย
+- จับเวลาและตรวจคำตอบฝั่ง server, คะแนนตามความเร็ว, streak, กราฟคำตอบ, top 5 และ podium
+- แก้ไข quiz, import/export JSON พร้อมฝังรูปอัปโหลดในไฟล์ export เพื่อย้ายเครื่องได้
+- โหมดสองหน้าจอด้วย iframe สำหรับทดสอบในหน้าต่างเดียว
+- เชื่อมต่อ WebSocket ใหม่และกลับเข้าเกมเดิมเมื่อ refresh/เครือข่ายหลุด
+- ปุ่มนำเข้าข้อมูล `QuizSpark_quizzes_v3` เดิม เมื่อพบ localStorage ใน origin ปัจจุบัน
+- ไม่มี CDN หรือบริการภายนอกที่ต้องเรียกใช้ขณะเล่น ยกเว้นรูป URL ที่ผู้จัดใส่เอง
+- รวมฟอนต์ภาษาไทย Noto Sans Thai ไว้ใน image ไม่ต้องโหลดจาก Google Fonts
 
-ในหน้าจัดการชุดคำถาม ใช้ **นำเข้า JSON** เพื่อเพิ่มชุดคำถาม และ **ส่งออก JSON** เพื่อดาวน์โหลดชุดที่ต้องการ
-
-- รับ JSON เป็น quiz object เดียว หรือ array ของ quiz objects สูงสุด 100 ชุดต่อไฟล์
-- แต่ละการนำเข้าสร้าง quiz ID ใหม่ การนำเข้าไฟล์เดิมซ้ำจึงสร้างชุดคำถามเพิ่ม
-- `correct` ของ MCQ ใช้ index **0–3** ตามลำดับตัวเลือก
-- การส่งออกฝังรูปที่อัปโหลดไว้ใน JSON เป็น Base64 เพื่อย้ายไปเครื่องอื่นได้
-- เมื่อนำเข้า Base64 ระบบจะแปลงกลับเป็นไฟล์ใน `uploads/`
-- รูปที่อ้างด้วย URL ภายนอกจะยังเป็น URL ไม่ได้ดาวน์โหลดมาเก็บหรือฝังในไฟล์ export
-
-ตัวอย่างไฟล์ที่นำเข้าได้:
-
-```json
-{
-  "title": "Machine Learning เบื้องต้น",
-  "category": "Machine Learning",
-  "questions": [
-    {
-      "type": "mcq",
-      "text": "งานใดเป็นตัวอย่างของ Classification?",
-      "options": [
-        "ทำนายราคาบ้านเป็นจำนวนเงิน",
-        "จำแนกอีเมลว่าเป็นสแปมหรือไม่",
-        "ทำนายอุณหภูมิเป็นองศาเซลเซียส",
-        "ทำนายระยะเวลารอเป็นนาที"
-      ],
-      "correct": 1,
-      "time": 20,
-      "emoji": "💡",
-      "image": "",
-      "explanationText": "Classification ทำนายหมวดหมู่ เช่น สแปมหรือไม่ใช่สแปม",
-      "explanationImage": ""
-    },
-    {
-      "type": "open",
-      "text": "AI ย่อมาจากอะไร?",
-      "openAnswers": ["Artificial Intelligence", "ปัญญาประดิษฐ์"],
-      "time": 30,
-      "emoji": "🤖",
-      "image": "",
-      "explanationText": "Artificial Intelligence หมายถึงปัญญาประดิษฐ์",
-      "explanationImage": ""
-    }
-  ]
-}
-```
-
-หากมีข้อมูลจากรุ่นเดิมใน `localStorage` คีย์ `QuizSpark_quizzes_v3` หน้าเลือกชุดคำถามจะแสดงปุ่มนำเข้าจากเบราว์เซอร์ ปุ่มนี้อ่านได้เฉพาะข้อมูลของ origin ปัจจุบัน หากเปลี่ยน protocol, hostname หรือ port ให้ export/import JSON จากต้นทาง
-
-## การคิดคะแนน
-
-เซิร์ฟเวอร์วัดเวลาตั้งแต่เริ่มข้อจนได้รับคำตอบ แล้วคำนวณ:
+คะแนนถูกคำนวณจากเวลา server:
 
 ```text
-ตอบถูก: round(1000 × (1 − เวลาที่ใช้ / (เวลาที่กำหนด × 2)))
-ตอบผิดหรือไม่ได้ตอบ: 0 คะแนน
+correct: round(1000 * (1 - elapsed / (time_limit * 2)))
+incorrect / unanswered: 0
 ```
 
-ตัวอย่าง กำหนดเวลา 20 วินาที ตอบถูกเมื่อผ่านไป 10 วินาที ได้ 750 คะแนน การตอบถูกต่อเนื่องเพิ่ม streak และการตอบผิดหรือไม่ได้ตอบจะรีเซ็ต streak เป็น 0
+ส่งได้หนึ่งคำตอบต่อรอบ และไม่ส่งเฉลยให้ผู้เล่นก่อนจบรอบ
+คำตอบแบบข้อความเปรียบเทียบหลัง Unicode NFKC, ตัดช่องว่างหัวท้าย และ casefold
+ลำดับเมื่อคะแนนเท่ากันใช้ผู้เข้าร่วมก่อน
 
-คะแนนเท่ากันจัดอันดับตามผู้เข้าร่วมก่อน ผู้เล่นไม่ได้รับเฉลยหรือคำอธิบายก่อนจบรอบ
+## สิ่งที่ปรับจากสเปกต้นฉบับ
 
-## คำสั่งดูแลระบบ
+| สเปกต้นฉบับ | รุ่น Docker |
+|---|---|
+| BroadcastChannel ระหว่างแท็บ | WebSocket เล่นข้ามเครื่องได้ |
+| localStorage เก็บ quiz | SQLite ใน volume ใช้ร่วมกันทุกเครื่อง |
+| ภาพ Base64 ใน browser | ไฟล์ภาพจริงใน container + volume |
+| single HTML ไม่มี backend | หน้าเว็บ `app/static/index.html` + Python backend |
+| Tailwind/Font Awesome/Confetti CDN | CSS/สัญลักษณ์/Canvas ในตัว ใช้งานโดยไม่เรียก CDN |
+| QR placeholder | PIN ขนาดใหญ่และปุ่มคัดลอกลิงก์ ยังไม่สร้าง QR จริง |
 
-รันจากโฟลเดอร์ที่มี `compose.yaml`:
+## ดูสถานะและอัปเดต
 
 ```bash
-# ดูสถานะและ log
 docker compose ps
-docker compose logs --tail=100 -f quizspark
-
-# หยุด / เปิดบริการเดิม
-docker compose stop quizspark
-docker compose start quizspark
-
-# เริ่ม process ใหม่
-docker compose restart quizspark
-
-# Build และใช้ source code ที่แก้ไขแล้ว
+docker compose logs --tail=100 quizspark
+curl http://localhost:8080/health
 docker compose up -d --build
-
-# หยุดและถอด container โดยเก็บ volume ไว้
-docker compose down
 ```
 
-**เกมที่กำลังเล่นอยู่จะจบเมื่อ process หรือ container restart** เพราะห้องเกมและคะแนนขณะเล่นเก็บในหน่วยความจำ ชุดคำถามและไฟล์อัปโหลดยังคงอยู่ใน volume
+Quiz และไฟล์อัปโหลดคงอยู่ใน volume แต่ **เกมที่กำลังเล่นอยู่เก็บในหน่วยความจำและจบลงเมื่อ server restart**
+เปิดเกมใหม่หลังอัปเดต ระบบใช้ process เดียว; ยังไม่รองรับหลาย replica/หลาย worker
+ตั้ง `MAX_PLAYERS` ได้ (ค่าเริ่มต้น 200 ต่อห้อง) เป็นขีดจำกัดรับผู้เล่น ไม่ใช่ผลรับรองสมรรถนะ
+รุ่น 3.1 ปรับเส้นทางรับคำตอบสำหรับ 200 คน: ยืนยันกลับเฉพาะผู้ตอบ,
+รวมการอัปเดตหน้าผู้จัดทุก 200 ms และส่งสถานะให้ทุกคนเมื่อเปลี่ยนช่วงเกม
+ผลทดสอบและข้อจำกัดอยู่ใน `docs/PERFORMANCE.md`; ต้องทดสอบผ่าน URL จริงของระบบอีกครั้ง
+ห้องปิดถูกล้างหลัง 5 นาที ห้องอื่นหมดอายุหลังไม่มีคำสั่งผู้จัด 6 ชั่วโมง
+token ผู้จัดหมดอายุภายใน 12 ชั่วโมงหรือเมื่อ server restart
 
 ## สำรองและกู้คืน
 
-### สำรองข้อมูล
-
-สำรองทั้ง `/app/data` เพื่อให้ได้ฐานข้อมูล รูปภาพ ต้นฉบับ JSON และรหัสผ่านอัตโนมัติ หยุดบริการก่อนเพื่อให้ข้อมูล SQLite และไฟล์อัปโหลดอยู่ในสภาพเดียวกัน
+หยุดเกมก่อนสำรองเพื่อให้ SQLite/WAL และไฟล์อัปโหลดเป็น snapshot ชุดเดียวกัน:
 
 ```bash
 docker compose stop quizspark
 docker run --rm --user 0:0 --entrypoint tar \
-  -v quizspark_data:/data:ro \
-  -v "$PWD":/backup \
-  quizspark:3.0 -czf /backup/quizspark-data.tar.gz -C /data .
+  -v quizspark_data:/data:ro -v "$PWD":/backup \
+  quizspark:3.1 -czf /backup/quizspark-data.tar.gz -C /data .
 docker compose start quizspark
 ```
 
-ไฟล์ `quizspark-data.tar.gz` อยู่ในโฟลเดอร์ปัจจุบัน คำสั่งนี้เขียนทับไฟล์สำรองชื่อเดียวกันถ้ามีอยู่แล้ว ให้เปลี่ยนชื่อหรือย้ายไฟล์สำรองก่อนทำรอบถัดไป
-
-เก็บ source code และ `.env` แยกไว้ด้วย โดยเฉพาะเมื่อกำหนด `ADMIN_PASSWORD` เพราะไฟล์สำรอง volume ไม่รวม `.env`
-
-### กู้คืนบนเครื่องใหม่
-
-วาง source code, `.env` ที่ต้องการใช้ และไฟล์สำรองในโฟลเดอร์โครงการ ขั้นตอนนี้ใช้กับเครื่องที่ **ยังไม่มี volume `quizspark_data`**:
+กู้คืนลง volume **ใหม่หรือว่าง** บนเครื่องที่ build image แล้ว:
 
 ```bash
-docker compose build
+docker compose stop quizspark
 docker volume create quizspark_data
 docker run --rm --user 0:0 --entrypoint tar \
-  -v quizspark_data:/data \
-  -v "$PWD":/backup:ro \
-  quizspark:3.0 -xzf /backup/quizspark-data.tar.gz -C /data
+  -v quizspark_data:/data -v "$PWD":/backup:ro \
+  quizspark:3.1 -xzf /backup/quizspark-data.tar.gz -C /data
 docker compose up -d
 ```
 
-หากเครื่องปลายทางมีข้อมูลเดิม ให้สำรองก่อนและเตรียม volume ว่างสำหรับการกู้คืน อย่าแตกไฟล์ทับฐานข้อมูลที่ใช้งานอยู่หรือมี SQLite WAL เก่าค้างอยู่
+หาก volume ปัจจุบันมีข้อมูล ให้สำรองและจัดการ volume เดิมก่อนกู้คืน ไม่ควรแตกไฟล์ทับฐานข้อมูลที่มี WAL เก่าค้างอยู่
 
-## ใช้งานหลัง NGINX
+## NGINX / HTTPS
 
-ตัวอย่างอยู่ที่ `docs/nginx.conf.example` สำหรับ proxy แอปที่ root path ของ hostname เช่น `quiz.example.org`
+มีตัวอย่าง `docs/nginx.conf.example` สำหรับ reverse proxy ที่ root path ของ hostname
+ส่ง `Upgrade`, `Connection` และ `Host` เพื่อรองรับ WebSocket
+เมื่อติดตั้งหลัง HTTPS เว็บจะเลือก `wss://` อัตโนมัติ
+หาก nginx อยู่บนเครื่องเดียวกัน กำหนด `BIND_ADDRESS=127.0.0.1` ใน `.env`
+ใช้ HTTPS เมื่อเปิดให้เข้าถึงผ่านอินเทอร์เน็ตเพื่อเข้ารหัสรหัสผ่านและข้อมูลเกม
+ลิงก์ภาพอัปโหลดเปิดอ่านได้สำหรับผู้มี URL เพื่อให้ผู้เล่นโหลดภาพระหว่างเกม
 
-เมื่อ NGINX รันบนเครื่อง host เดียวกับ Docker ให้กำหนด `BIND_ADDRESS=127.0.0.1` ใน `.env` และ proxy ไป `http://127.0.0.1:8080` ถ้าเปลี่ยน `HOST_PORT` ต้องแก้พอร์ต upstream ให้ตรงกัน
-
-ค่าหลักที่ต้องมีใน location ของ NGINX:
-
-```nginx
-proxy_http_version 1.1;
-proxy_set_header Host $http_host;
-proxy_set_header Upgrade $http_upgrade;
-proxy_set_header Connection $connection_upgrade;
-proxy_read_timeout 3600s;
-proxy_send_timeout 3600s;
-proxy_buffering off;
-```
-
-ตัวแปร `$connection_upgrade` ต้องมี `map` ใน `http` context ตามไฟล์ตัวอย่าง กำหนด `client_max_body_size 51m;` สำหรับค่าเริ่มต้นนำเข้า JSON 50 MB และปรับให้สอดคล้องกันหากเพิ่มขนาดอัปโหลด
-
-ไฟล์ตัวอย่างรับ HTTP ที่พอร์ต 80 ยังไม่ได้ตั้งใบรับรอง TLS ให้นำค่าที่เกี่ยวข้องไปใส่ใน HTTPS virtual host ของระบบ เมื่อหน้าเว็บใช้ HTTPS แอปจะเลือก `wss://` อัตโนมัติ
-
-หาก NGINX อยู่ใน container แยก อย่าใช้ `127.0.0.1` เป็น upstream ของแอป ให้เชื่อมผ่าน Docker network และใช้ชื่อบริการ `quizspark:8080`
-
-## โครงสร้างโครงการ
-
-| ไฟล์หรือโฟลเดอร์ | หน้าที่ |
-|---|---|
-| `Dockerfile` | สร้าง image และรันแอปด้วย UID/GID `10001:10001` |
-| `compose.yaml` | บริการ พอร์ต environment และ volume |
-| `.env.example` | ตัวอย่างการตั้งค่า |
-| `requirements.txt` | aiohttp `3.13.5` และ Pillow `12.3.0` |
-| `app/server.py` | HTTP API, WebSocket, ห้องเกม และการจัดเก็บข้อมูล |
-| `app/defaults.json` | ชุดคำถามตัวอย่างสำหรับฐานข้อมูลใหม่ |
-| `app/static/index.html` | หน้าเว็บพร้อม CSS และ JavaScript |
-| `app/static/fonts/` | ฟอนต์ภาษาไทยและใบอนุญาต |
-| `tests/test_app.py` | Integration tests ของ HTTP/WebSocket |
-| `tests/browser.cjs` | ทดสอบ workflow ผ่านเบราว์เซอร์ |
-| `docs/VERIFICATION.md` | ขอบเขตและผลการตรวจสอบแพ็กเกจ |
-| `docs/original-specification.md` | สเปกต้นฉบับ |
-
-รุ่น Docker เปลี่ยนจาก `BroadcastChannel` เป็น WebSocket เพื่อเล่นข้ามเครื่อง เปลี่ยนการเก็บ quiz จาก `localStorage` เป็น SQLite และเก็บรูปอัปโหลดเป็นไฟล์จริง
-
-## พัฒนาและทดสอบโดยไม่ใช้ Docker
-
-ใช้ Python 3.12 ตามเวอร์ชันใน Docker image:
+## ทดสอบแบบไม่ใช้ Docker
 
 ```bash
-python3.12 -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 python -m unittest discover -s tests -v
 DATA_DIR=./data PORT=8080 python app/server.py
 ```
 
-ข้อมูลจะอยู่ใน `./data` และรหัสผ่านที่สร้างอัตโนมัติอยู่ที่ `./data/admin-password`
+ชุดทดสอบครอบคลุมการเก็บภาพ/quiz หลังสร้าง server ใหม่, import/export,
+การซ่อนเฉลย, MCQ, open-ended, deadline, คะแนน, reconnect และการแยกสิทธิ์ผู้จัด/ผู้เล่น
 
-การทดสอบหน้าจอเพิ่มเติมต้องมี Node.js, Playwright และ Chromium:
+การ build ครั้งแรกต้องดาวน์โหลด Python image และ dependencies; หลัง build แล้วแอปรันได้โดยไม่เรียกบริการภายนอก
+
+## อ้างอิง
+
+- [aiohttp 3.13.5 server quickstart](https://docs.aiohttp.org/en/v3.13.5/web_quickstart.html)
+- [Docker volumes](https://docs.docker.com/engine/storage/volumes/)
+
+รายละเอียดการตรวจสอบแพ็กเกจนี้อยู่ใน `docs/VERIFICATION.md`
+
+## อัปเดตจาก 3.0 เป็น 3.1
+
+จบเกมที่กำลังเล่นก่อน แล้วแตก ZIP ทับโฟลเดอร์ `quizspark-docker` เดิม
+เก็บ `.env` และการตั้งค่า proxy เดิมไว้ ZIP ไม่มีไฟล์ `.env` หรือข้อมูล runtime
 
 ```bash
-npm install --no-save playwright
-npx playwright install chromium
-node tests/browser.cjs
+cd quizspark-docker
+docker compose up -d --build
+curl http://localhost:8080/health
 ```
 
-แอปและ Docker image ไม่ต้องใช้ Node.js ในการรันจริง
+ผล health ควรแสดง `"version":"3.1-docker"` ระบบยังใช้ named volume
+`quizspark_data` เดิมและ schema เดิม จึงเก็บชุดคำถาม รูปอัปโหลด และ JSON นำเข้าต่อได้
+การ restart จบห้องเกมปัจจุบัน และผู้จัดต้องเข้าสู่ระบบใหม่
 
-## แก้ปัญหาเบื้องต้น
+## ทดสอบ 200 คนบนระบบจริง
 
-| อาการ | จุดที่ควรตรวจ |
-|---|---|
-| เครื่องอื่นเปิดเว็บไม่ได้ | ใช้ IP/hostname ของเซิร์ฟเวอร์ ตรวจ `HOST_PORT`, `BIND_ADDRESS`, firewall และเส้นทางเครือข่าย |
-| อ่าน `admin-password` ไม่พบไฟล์ | ตรวจว่า container พร้อมแล้ว และกำหนด `ADMIN_PASSWORD` ใน `.env` ไว้หรือไม่ |
-| เปลี่ยน `.env` แต่ค่ายังเหมือนเดิม | ใช้ `docker compose up -d` เพื่อให้ Compose ปรับ container ตามค่าใหม่ |
-| อัปโหลดขึ้น HTTP 413 | ตรวจทั้ง `MAX_UPLOAD_MB`/`MAX_IMPORT_MB` และ `client_max_body_size` ของ proxy |
-| เปิดหน้าเว็บได้ แต่เข้าห้องไม่ได้หลัง proxy | ตรวจ WebSocket upgrade headers, upstream และการส่ง `Host` เดิม |
-| นำเข้า JSON ไม่ผ่าน | ตรวจจำนวนข้อ ตัวเลือก 4 ค่า `correct` 0–3 เวลาจำนวนเต็ม 5–300 และ `openAnswers` ที่ไม่ว่าง |
-| รูปหายเมื่อย้าย quiz ไปอีกเครื่อง | ใช้ปุ่มส่งออก JSON เพื่อฝังรูป แทนการคัดลอกเฉพาะ path `/uploads/...` |
-| เจอ `Permission denied` หลังเปลี่ยนเป็น bind mount | โฟลเดอร์ข้อมูลต้องให้ UID/GID `10001:10001` เขียนได้ |
-| PIN เดิมเข้าไม่ได้หลัง restart | ห้องเกมอยู่ในหน่วยความจำ ให้ผู้จัดเปิดเกมใหม่ |
+บนเครื่องสร้างโหลดอีกเครื่อง ใช้ Python 3.10 ขึ้นไปและ dependency สำหรับสคริปต์:
 
-## ขอบเขตของรุ่นนี้
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install aiohttp==3.13.5
+python tools/stress_test.py --url https://your-server.example \
+  --levels 50,100,200 --rounds 5 --output results/step-test.json
+```
 
-- ใช้ process เดียว ไม่รองรับหลาย worker หรือหลาย replica ที่แชร์ห้องเกมเดียวกัน
-- `MAX_PLAYERS=200` เป็นขีดจำกัดต่อห้อง ยังไม่ใช่ผล benchmark ผู้เล่นพร้อมกัน 200 คน
-- ไม่เก็บห้องเกมและคะแนนขณะเล่นเพื่อกู้กลับหลัง server restart
-- ยังไม่มี QR code จริง ใช้ PIN และปุ่มคัดลอกลิงก์เข้าร่วม
-- ภาพอัปโหลดเปิดอ่านได้สำหรับผู้ที่มี URL เพื่อให้ผู้เล่นโหลดภาพได้
-- session สำหรับจัดการ quiz หมดอายุหลัง 12 ชั่วโมง หรือเมื่อ server restart
-- รายงานใน `docs/VERIFICATION.md` ระบุว่าทดสอบแอปและเบราว์เซอร์แล้ว แต่ยังไม่ได้ build/run Docker image ในสภาพแวดล้อมที่จัดทำแพ็กเกจ
+สคริปต์ถามรหัสผู้จัด สร้างห้องทดสอบ เล่นจนจบ และลบเฉพาะ quiz ที่สร้าง
+ค่าเริ่มต้นตอบพร้อมกัน เพิ่ม `--answer-spread 10` เพื่อให้ทยอยตอบภายใน 10 วินาที
+เกณฑ์เริ่มต้น: 200/200 คำตอบทุกข้อ, ack p95 ≤ 1,000 ms, ไม่มีผู้เล่นหลุด
 
-## License
+สคริปต์พัก 65 วินาทีระหว่างระดับ เพราะ server ยังจำกัด connection/join
+300 ครั้ง/IP/60 วินาที หลัง proxy อาจนับผู้เล่นทั้งหมดเป็น IP เดียว
+ถ้ารันหลายคำสั่งต่อกัน ให้เว้นอย่างน้อย 65 วินาทีระหว่างการทดสอบ
+HTTP 429/`rate_limit` ต้องแยกจากผลความเร็วการประมวลผล
 
-โค้ดโครงการใช้ MIT License ตามไฟล์ `LICENSE` ส่วน Noto Sans Thai ใช้ SIL Open Font License 1.1 ตาม `app/static/fonts/OFL.txt` ดูรายละเอียดส่วนประกอบภายนอกใน `docs/THIRD_PARTY.md`
+สำหรับทำซ้ำ benchmark ในเครื่องทดสอบโดยใช้ server/client คนละ process:
+
+```bash
+python tests/run_load_tests.py
+```
+
+คำสั่งนี้เปิด server ชั่วคราวบน loopback และใช้ข้อมูลทดสอบใน temporary directory
+อ่านวิธีวัดและผลจริงใน `docs/PERFORMANCE.md`

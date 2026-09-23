@@ -2,7 +2,7 @@ name: quizspark
 services:
   quizspark:
     build: .
-    image: quizspark:3.0
+    image: quizspark:3.1
     restart: unless-stopped
     init: true
     ports:

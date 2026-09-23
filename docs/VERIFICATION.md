@@ -1,5 +1,28 @@
 # Verification
 
+## Version 3.1 — 2026-09-23
+
+- All eight HTTP/WebSocket integration tests passed with Python 3.12.14,
+  aiohttp 3.13.5 and Pillow 12.3.0.
+- Added regressions for a stalled outbound connection while other players submit
+  and receive results, receipt-time scoring before the room lock, and ordered
+  live session takeover / kick messages before socket closure.
+- 200 real player WebSockets plus a host: 5 simultaneous-answer rounds,
+  3 rounds with answers spread over 10 seconds, and 5 rounds following
+  simultaneous connection/join. All 2,600 answers accepted, all results delivered,
+  no answer errors or unexpected disconnections. See `PERFORMANCE.md` and raw JSON.
+- Ran the original byte-identical 3.0 server with the same load generator as a
+  baseline. It failed both measured rounds; the baseline is retained in the report.
+- Upgraded an actual 3.0 data directory to 3.1: quiz IDs, full quiz documents and
+  uploaded PNG bytes remained identical and readable through the new server.
+- Compose YAML and Python source parse checks passed. Docker image build/run
+  remains unverified here because no Docker daemon is provided.
+- Frontend source is unchanged. The earlier Chromium test below passed on 3.0;
+  a fresh 3.1 browser run could not start Chromium in this environment
+  (runtime startup/extraction errors). No new browser pass is claimed.
+
+## Version 3.0 — original verification
+
 Verified on 2026-09-22 with Python 3.12, aiohttp 3.13.5, Pillow 12.3.0,
 and headless Chromium 153.0.8010.0.
 
@@ -27,8 +50,8 @@ and headless Chromium 153.0.8010.0.
 - Docker image build, image startup and Docker volume lifecycle on a Docker Engine.
   This environment does not provide Docker or a Docker daemon. The server was tested
   directly using the same Python application and pinned direct dependencies.
-- Hardware capacity / 200 concurrent players. `MAX_PLAYERS=200` is a configurable limit,
-  not a measured throughput guarantee.
+- Production hardware / network capacity. Version 3.1 local 200-player measurements
+  are recorded above; `MAX_PLAYERS=200` alone is not a throughput guarantee.
 - NGINX/TLS deployment and devices outside the test browser.
 - Audio output was not evaluated by listening; oscillator code is exercised in the browser.
 

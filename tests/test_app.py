@@ -5,6 +5,7 @@ import io
 import json
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -180,6 +181,80 @@ class Integration(unittest.IsolatedAsyncioTestCase):
         await player.send_json({"type": "answer", "value": 2, "index": 0})
         error = await receive(player, lambda d: d.get("type") == "error")
         self.assertEqual(error["code"], "round_closed")
+
+    async def test_slow_receiver_does_not_block_other_players(self):
+        quiz = await self.create()
+        host, credentials = await self.host(quiz)
+        first, _ = await self.player(credentials["pin"], "Fast One")
+        second, _ = await self.player(credentials["pin"], "Fast Two")
+        slow, _ = await self.player(credentials["pin"], "Slow Receiver")
+        await host.send_json({"action": "start"})
+        await asyncio.gather(*(state(ws, "question") for ws in (host, first, second, slow)))
+        service = next(value for value in self.client.server.app.values() if hasattr(value, "rooms"))
+        room = service.rooms[credentials["pin"]]
+        socket = next(p["ws"] for p in room.players.values() if p["name"] == "Slow Receiver")
+        original = socket.send_str
+        blocked, release = asyncio.Event(), asyncio.Event()
+        async def delayed_send(payload):
+            blocked.set()
+            await release.wait()
+            await original(payload)
+        socket.send_str = delayed_send
+        try:
+            # Inject an indefinitely stalled network write for one real client.
+            room.broadcast(immediate=True)
+            await asyncio.wait_for(blocked.wait(), 1)
+            async with asyncio.timeout(1):
+                await first.send_json({"type": "answer", "index": 0, "value": 2})
+                ack = await state(first, "question", lambda s: s["me"]["answered"])
+                self.assertNotIn("correct", ack["question"])
+                await second.send_json({"type": "answer", "index": 0, "value": 2})
+                await slow.send_json({"type": "answer", "index": 0, "value": 2})
+                result = await state(host, "results")
+                self.assertEqual(result["received"], 3)
+                self.assertEqual(len(result["responses"]), 3)
+                self.assertTrue((await state(second, "results"))["me"]["answer"]["correct"])
+        finally:
+            release.set()
+            socket.send_str = original
+
+    async def test_score_uses_receipt_time_before_room_lock(self):
+        quiz = await self.create()
+        host, credentials = await self.host(quiz)
+        first, _ = await self.player(credentials["pin"], "Queued Answer")
+        second, _ = await self.player(credentials["pin"], "Other Answer")
+        await host.send_json({"action": "start"})
+        await asyncio.gather(state(first, "question"), state(second, "question"))
+        service = next(value for value in self.client.server.app.values() if hasattr(value, "rooms"))
+        room = service.rooms[credentials["pin"]]
+        async with room.lock:
+            await first.send_json({"type": "answer", "index": 0, "value": 2})
+            await asyncio.sleep(.4)
+            released_at = time.monotonic()
+        await state(first, "question", lambda s: s["me"]["answered"])
+        await second.send_json({"type": "answer", "index": 0, "value": 2})
+        result = await state(first, "results")
+        score_if_delayed = 1000 - (released_at - room.started) * 100
+        self.assertGreater(result["me"]["answer"]["points"], score_if_delayed + 20)
+
+    async def test_live_resume_and_kick_deliver_control_before_close(self):
+        quiz = await self.create()
+        host, credentials = await self.host(quiz)
+        original, player_credentials = await self.player(credentials["pin"], "Reconnecting Player")
+        replacement = await self.client.ws_connect("/ws")
+        await replacement.send_json({"type": "resume", "pin": credentials["pin"], "token": player_credentials["token"]})
+        await receive(replacement, lambda d: d.get("type") == "connected")
+        lobby = await state(replacement, "lobby")
+        async with asyncio.timeout(1):
+            while (await original.receive()).type == WSMsgType.TEXT:
+                pass
+        self.assertEqual(original.close_code, 4001)
+        await host.send_json({"action": "kick", "id": lobby["me"]["id"]})
+        await receive(replacement, lambda d: d.get("type") == "kicked")
+        async with asyncio.timeout(1):
+            while (await replacement.receive()).type == WSMsgType.TEXT:
+                pass
+        self.assertEqual(replacement.close_code, 1000)
 
     async def test_unauthorized_upload_invalid_content_and_quiz_validation(self):
         self.assertEqual((await self.client.get("/api/quizzes")).status, 401)
