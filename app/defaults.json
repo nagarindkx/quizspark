@@ -1,0 +1,17 @@
+[
+  {
+    "title": "รอบรู้รอบโลก · World Explorer", "category": "General knowledge", "questions": [
+      {"type":"mcq","text":"เมืองหลวงของประเทศไทยคือที่ใด? / What is the capital of Thailand?","options":["เชียงใหม่ · Chiang Mai","กรุงเทพฯ · Bangkok","ภูเก็ต · Phuket","พัทยา · Pattaya"],"correct":1,"time":20,"emoji":"🇹🇭","explanationText":"กรุงเทพมหานครเป็นเมืองหลวงของประเทศไทย / Bangkok is the capital of Thailand."},
+      {"type":"mcq","text":"ดาวเคราะห์ดวงใดได้ชื่อว่าดาวเคราะห์สีแดง? / Which is the Red Planet?","options":["Earth","Venus","Mars","Jupiter"],"correct":2,"time":20,"emoji":"🪐","explanationText":"ดาวอังคารมีสีแดงจากแร่เหล็กออกไซด์บนพื้นผิว / Iron oxide gives Mars its reddish color."},
+      {"type":"open","text":"สัญลักษณ์ทางเคมีของทองคำคืออะไร? / What is the chemical symbol for gold?","openAnswers":["Au"],"time":25,"emoji":"🪙","explanationText":"Au มาจากคำละติน Aurum / Au comes from the Latin word aurum."},
+      {"type":"mcq","text":"เลขฐานสอง 101 มีค่าเท่าใดในฐานสิบ? / What is binary 101 in decimal?","options":["3","4","5","6"],"correct":2,"time":20,"emoji":"💻","explanationText":"1 × 4 + 0 × 2 + 1 × 1 = 5"}
+    ]
+  },
+  {
+    "title": "AI ใกล้ตัว · AI Essentials", "category": "Technology", "questions": [
+      {"type":"mcq","text":"งานใดเป็น Classification? / Which task is classification?","options":["ทำนายราคา · Predict a price","แยกสแปม · Detect spam","ทำนายอุณหภูมิ · Predict temperature","ทำนายยอดขาย · Forecast sales"],"correct":1,"time":25,"emoji":"🤖","explanationText":"Classification ทำนายหมวดหมู่ เช่น สแปม/ไม่ใช่สแปม / Classification predicts categories, such as spam or not spam."},
+      {"type":"mcq","text":"ชุดข้อมูลใดใช้ประเมินโมเดลครั้งสุดท้าย? / Which data is used for final evaluation?","options":["Training set","Validation set","Test set","ข้อมูลทั้งหมด · All data"],"correct":2,"time":20,"emoji":"🧪","explanationText":"เก็บ test set แยกไว้จากการฝึกและการเลือกโมเดล / Hold the test set apart from training and model selection."},
+      {"type":"open","text":"AI ย่อมาจากอะไร? / What does AI stand for?","openAnswers":["Artificial Intelligence","ปัญญาประดิษฐ์"],"time":30,"emoji":"💡","explanationText":"Artificial Intelligence = ปัญญาประดิษฐ์"}
+    ]
+  }
+]

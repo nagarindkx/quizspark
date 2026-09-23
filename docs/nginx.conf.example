@@ -1,0 +1,25 @@
+# In the nginx http {} block:
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+# Add these directives to the HTTPS server {} block for your domain.
+# TLS certificates are configured in your existing nginx installation.
+server {
+    listen 80;
+    server_name quiz.example.org;
+    client_max_body_size 51m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+}
